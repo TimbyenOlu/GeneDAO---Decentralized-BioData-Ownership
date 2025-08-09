@@ -12,6 +12,9 @@
 (define-constant err-proposal-expired (err u106))
 (define-constant err-already-voted (err u107))
 (define-constant err-insufficient-stake (err u108))
+(define-constant err-invalid-rating (err u109))
+(define-constant err-no-access (err u110))
+(define-constant err-already-rated (err u111))
 
 (define-data-var next-bio-data-id uint u1)
 (define-data-var next-proposal-id uint u1)
@@ -51,6 +54,14 @@
 
 (define-map user-earnings principal uint)
 
+(define-map data-quality-ratings uint {
+    total-rating: uint,
+    rating-count: uint,
+    average-rating: uint
+})
+
+(define-map user-ratings {data-id: uint, rater: principal} uint)
+
 (define-read-only (get-bio-data-metadata (data-id uint))
     (map-get? bio-data-metadata data-id)
 )
@@ -81,6 +92,14 @@
 
 (define-read-only (get-min-stake-amount)
     (var-get min-stake-amount)
+)
+
+(define-read-only (get-data-quality-rating (data-id uint))
+    (map-get? data-quality-ratings data-id)
+)
+
+(define-read-only (get-user-rating (data-id uint) (rater principal))
+    (map-get? user-ratings {data-id: data-id, rater: rater})
 )
 
 (define-public (mint-bio-data (data-hash (buff 32)) (price uint))
@@ -232,4 +251,29 @@
         (map-set user-earnings tx-sender u0)
         (ok earnings)
     )
+)
+
+(define-public (rate-data-quality (data-id uint) (rating uint))
+    (let ((license (unwrap! (map-get? data-licenses {data-id: data-id, researcher: tx-sender}) err-no-access))
+          (rating-key {data-id: data-id, rater: tx-sender})
+          (current-ratings (default-to {total-rating: u0, rating-count: u0, average-rating: u0} 
+                           (map-get? data-quality-ratings data-id))))
+        (asserts! (and (>= rating u1) (<= rating u5)) err-invalid-rating)
+        (asserts! (>= stacks-block-height (get expires-at license)) err-unauthorized)
+        (asserts! (is-none (map-get? user-ratings rating-key)) err-already-rated)
+        (map-set user-ratings rating-key rating)
+        (let ((new-total (+ (get total-rating current-ratings) rating))
+              (new-count (+ (get rating-count current-ratings) u1)))
+            (map-set data-quality-ratings data-id {
+                total-rating: new-total,
+                rating-count: new-count,
+                average-rating: (/ new-total new-count)
+            })
+        )
+        (ok true)
+    )
+)
+
+(define-read-only (get-top-rated-data (min-rating uint))
+    (ok "Feature requires off-chain indexing for full implementation")
 )
