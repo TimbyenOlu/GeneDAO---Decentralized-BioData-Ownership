@@ -256,7 +256,7 @@
 (define-public (rate-data-quality (data-id uint) (rating uint))
     (let ((license (unwrap! (map-get? data-licenses {data-id: data-id, researcher: tx-sender}) err-no-access))
           (rating-key {data-id: data-id, rater: tx-sender})
-          (current-ratings (default-to {total-rating: u0, rating-count: u0, average-rating: u0} 
+          (current-ratings (default-to {total-rating: u0, rating-count: u0, average-rating: u0}
                            (map-get? data-quality-ratings data-id))))
         (asserts! (and (>= rating u1) (<= rating u5)) err-invalid-rating)
         (asserts! (>= stacks-block-height (get expires-at license)) err-unauthorized)
@@ -271,6 +271,39 @@
             })
         )
         (ok true)
+    )
+)
+
+(define-private (bulk-mint-helper (data-hash (buff 32)) (state {current-id: uint, prices: (list 10 uint), index: uint}))
+    (let ((current-id (get current-id state))
+          (prices (get prices state))
+          (index (get index state)))
+        (if (< index (len prices))
+            (let ((price (unwrap-panic (element-at prices index))))
+                (unwrap-panic (nft-mint? bio-data current-id tx-sender))
+                (map-set bio-data-metadata current-id {
+                    owner: tx-sender,
+                    data-hash: data-hash,
+                    price: price,
+                    available: true,
+                    created-at: stacks-block-height
+                })
+                {current-id: (+ current-id u1), prices: prices, index: (+ index u1)}
+            )
+            state
+        )
+    )
+)
+
+(define-public (bulk-mint-bio-data (data-hashes (list 10 (buff 32))) (prices (list 10 uint)))
+    (let ((len-hashes (len data-hashes))
+          (len-prices (len prices)))
+        (asserts! (is-eq len-hashes len-prices) err-invalid-proposal)
+        (let ((initial-state {current-id: (var-get next-bio-data-id), prices: prices, index: u0})
+              (final-state (fold bulk-mint-helper data-hashes initial-state)))
+            (var-set next-bio-data-id (get current-id final-state))
+            (ok true)
+        )
     )
 )
 
