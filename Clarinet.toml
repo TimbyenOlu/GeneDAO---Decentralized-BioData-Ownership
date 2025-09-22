@@ -1,0 +1,23 @@
+[project]
+name = 'GeneDAO---Decentralized-BioData-Ownership'
+description = ''
+authors = []
+telemetry = true
+cache_dir = '.\.cache'
+requirements = []
+[contracts.GeneDAO---Decentralized-BioData-Ownership]
+path = 'contracts/GeneDAO---Decentralized-BioData-Ownership.clar'
+clarity_version = 3
+epoch = 3.1
+[repl.analysis]
+passes = ['check_checker']
+
+[repl.analysis.check_checker]
+strict = false
+trusted_sender = false
+trusted_caller = false
+callee_filter = false
+
+[repl.remote_data]
+enabled = false
+api_url = 'https://api.hiro.so'
