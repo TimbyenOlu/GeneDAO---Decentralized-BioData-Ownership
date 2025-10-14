@@ -307,6 +307,21 @@
     )
 )
 
+(define-public (buy-data-access (data-id uint))
+    (let ((metadata (unwrap! (map-get? bio-data-metadata data-id) err-not-found))
+          (price (get price metadata)))
+        (asserts! (get available metadata) err-unauthorized)
+        (asserts! (is-none (map-get? data-licenses {data-id: data-id, researcher: tx-sender})) err-already-exists)
+        (try! (ft-transfer? gene-token price tx-sender (get owner metadata)))
+        (map-set data-licenses {data-id: data-id, researcher: tx-sender} {
+            expires-at: (+ stacks-block-height u8640),
+            price-paid: price
+        })
+        (map-set user-earnings (get owner metadata) (+ (get-user-earnings (get owner metadata)) price))
+        (ok true)
+    )
+)
+
 (define-read-only (get-top-rated-data (min-rating uint))
     (ok "Feature requires off-chain indexing for full implementation")
 )
